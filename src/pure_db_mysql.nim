@@ -27,10 +27,6 @@ proc get_all_rows*(db_conn: var DbConn, sql: SqlQuery): seq[Row] =
   for c in sql.string:
     query.add(byte(c))
 
-
-  let query_len = query.len - HEADER_SIZE
-  query[0] = byte(query_len)
-
   db_conn.sequence_id = 0'u8
   send_packet(db_conn, query)
 
@@ -54,6 +50,6 @@ proc get_all_rows*(db_conn: var DbConn, sql: SqlQuery): seq[Row] =
       let eof_data = read_eof_data(row_packet)
       db_conn.server_status_flags = eof_data.server_status_flags
       break
-    let row = read_text_resltset_row(row_packet, column_count)
+    let row = read_text_resultset_row(row_packet, column_count)
     result.add(row)
 

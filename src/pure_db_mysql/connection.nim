@@ -1,5 +1,5 @@
 import net
-import auth, packet, mysql_const
+import auth, packet, mysql_const, reader
 
 type Initial_handshake_v10* = object
   protocol_version*: uint8
@@ -15,75 +15,31 @@ type Initial_handshake_v10* = object
   auth_plugin_name*: string
 
 proc read_initial_handshake_v10*(payload: Packet): Initial_handshake_v10 =
-  result = Initial_handshake_v10()
-  var next_start = 0
+  var reader = new_reader(payload)
 
-  result.protocol_version = uint8(payload[0])
-  next_start += 1
+  result.protocol_version = reader.read_int_1()
   #TODO: if protocol_version != 10, raise exception
-
-  var server_version_len: int
-  for i, c in payload[1..<payload.len]:
-    if c == 0x00:
-      server_version_len = i
-      break
-  result.server_version = payload[1..server_version_len].to_string()
-  next_start += server_version_len + 1
-
-  result.thread_id = 
-    uint32(payload[next_start]) or 
-    uint32(payload[next_start+1]).shl(8) or 
-    uint32(payload[next_start+2]).shl(16) or
-    uint32(payload[next_start+3]).shl(24)
-  next_start += 4
-
-  let auth_plugin_data_part_1 = payload[next_start..<next_start+8]
-  next_start += 8
-
-  result.filler = uint8(payload[next_start])
-  next_start += 1
-
-  let capability_flags_1 = 
-    uint32(payload[next_start]) or 
-    uint32(payload[next_start+1]).shl(8)
-  next_start += 2
-
-  result.character_set = uint8(payload[next_start])
-  next_start += 1
-
-  result.status_flags = uint16(payload[next_start]) or uint16(
-      payload[next_start+1]).shl(8)
-  next_start += 2
-
-  let capability_flags_2 = uint32(payload[next_start]).shl(16) or cast[
-      uint32](payload[next_start+1]).shl(24)
-  result.capability_flags = capability_flags_1 + capability_flags_2
-  next_start += 2
-
-  result.auth_plugin_data_len = uint8(payload[next_start])
-  next_start += 1
-
-  result.reserved = payload[next_start..<next_start+10]
-  next_start += 10
-
+  result.server_version = reader.read_null_terminated_string()
+  result.thread_id = reader.read_int_4()
+  let auth_plugin_data_part_1 = reader.read_bytes(8)
+  result.filler = reader.read_int_1()
+  let capability_flags_1 = reader.read_int_2().uint32
+  result.character_set = reader.read_int_1()
+  result.status_flags = reader.read_int_2()
+  let capability_flags_2 = reader.read_int_2().uint32
+  result.capability_flags = capability_flags_1 + capability_flags_2.shl(16)
+  result.auth_plugin_data_len = reader.read_int_1()
+  result.reserved = reader.read_bytes(10)
   let auth_plugin_data_part_2_len = max(13, int(result.auth_plugin_data_len) - 8)
-  var auth_plugin_data_part_2 = payload[
-      next_start..<next_start+auth_plugin_data_part_2_len]
+  var auth_plugin_data_part_2 = reader.read_bytes(auth_plugin_data_part_2_len)
   if auth_plugin_data_part_2[^1] == 0x00:
     discard auth_plugin_data_part_2.pop()
   result.auth_plugin_data = auth_plugin_data_part_1 & auth_plugin_data_part_2
-  next_start += auth_plugin_data_part_2_len
 
   if (result.capability_flags and CLIENT_PLUGIN_AUTH) == 0:
     return result
 
-  var auth_plugin_name_len: int
-  for i, c in payload[next_start..<payload.len]:
-    if c == 0x00:
-      auth_plugin_name_len = i
-      break
-  result.auth_plugin_name = payload[next_start..<next_start+auth_plugin_name_len].to_string()
-  next_start += auth_plugin_name_len + 1
+  result.auth_plugin_name = reader.read_null_terminated_string()
 
   return result
 
