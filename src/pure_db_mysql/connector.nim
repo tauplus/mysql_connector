@@ -1,5 +1,5 @@
 import net, db_common
-import mysql_const, connection, packet
+import mysql_const, connection, packet, data
 
 type DbConn* = object
   socket*: Socket
@@ -37,7 +37,7 @@ proc recv_packet*(db_conn:var DbConn): Packet =
     if payload_read_size != int(payload_length): dbError("read packet payload error")
 
     result.add(payload)
-    if payload_length != MAX_ALLOWED_PACKET: break
+    if payload_length != MAX_PACKET_SIZE: break
 
   return result
 
@@ -47,8 +47,8 @@ proc send_packet*(db_conn:var DbConn, packet:var Packet) =
   var payload_length: int
 
   while true:
-    if packet_length >= MAX_ALLOWED_PACKET.int:
-      payload_length = MAX_ALLOWED_PACKET.int
+    if packet_length >= MAX_PACKET_SIZE.int:
+      payload_length = MAX_PACKET_SIZE.int
       packet[0] = 0xFF
       packet[1] = 0xFF
       packet[2] = 0xFF
@@ -66,7 +66,7 @@ proc send_packet*(db_conn:var DbConn, packet:var Packet) =
     discard send(db_conn.socket, packet[0].addr, payload_length + HEADER_SIZE)
     db_conn.sequence_id.inc(1)
 
-    if payload_length != MAX_ALLOWED_PACKET.int:
+    if payload_length != MAX_PACKET_SIZE.int:
       return
 
     packet_length -= payload_length
@@ -74,39 +74,20 @@ proc send_packet*(db_conn:var DbConn, packet:var Packet) =
 
   return
 
-proc connect*(host: string, port: Port, user, password: string): DbConn =
+proc connect*(host: string, port: Port, user, password: string, database = ""): DbConn =
   var db_conn = DBConn()
   db_conn.connect_mysql_socket(host, port)
   let payload = recv_packet(db_conn)
   let initial_handshake = read_initial_handshake_v10(payload)
   echo initial_handshake.repr
 
-  var handshake_response = make_handshake_response_41(initial_handshake, user, password)
+  var handshake_response = make_handshake_response_41(initial_handshake, user, password, database)
   send_packet(db_conn, handshake_response)
 
   let response = recv_packet(db_conn)
-  if response[0] == 0x00:
-    var pos = 1
-    var result_tuple = read_length_encoded_integer(response[pos..^1])
-    let affected_rows = result_tuple[0]
-    echo "affected_rows:", affected_rows
-    pos += result_tuple[2]
-
-    result_tuple = read_length_encoded_integer(response[pos..^1])
-    let last_insert_id = result_tuple[0]
-    echo "last_insert_id:", last_insert_id
-    pos += result_tuple[2]
-
-    let status_flags = uint16(response[pos]) or uint16(response[pos+1]).shl(8)
-    echo "status_flags:", status_flags
-    pos += 2
-
-    let warnings = uint16(response[pos]) or uint16(response[pos+1]).shl(8)
-    echo "warnings:", warnings
-    pos += 2
-    if pos != response.len:
-      dbError("read connection ok error")
-
+  if response.is_ok_packet():
+    let ok_data = read_ok_data(response)
+    discard ok_data
   return db_conn
 
 proc disconnect*(db_conn:var DbConn) =

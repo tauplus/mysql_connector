@@ -3,14 +3,19 @@ import packet
 type
   Reader* = object
     packet: Packet
-    len: int
     next_read_pos: int
 
 func new_reader*(packet: Packet): Reader =
   result.packet = packet
-  result.len = packet.len()
   result.next_read_pos = 0
   return result
+
+func len(reader: Reader): int =
+  return reader.packet.len()
+
+proc read_skip*(reader: var Reader, len: int) =
+  reader.next_read_pos += len
+  return
 
 proc read_bytes*(reader: var Reader, len: int): Packet =
   result = reader.packet[reader.next_read_pos..<reader.next_read_pos+len]
@@ -102,6 +107,10 @@ proc read_fixed_length_string*(reader: var Reader, len: int): string =
   for i in 0..<len:
     result[i] = reader.packet[pos+i].char()
   reader.next_read_pos += len
+
+proc read_eof_string*(reader: var Reader): string =
+  let len = reader.len - reader.next_read_pos
+  result = reader.read_fixed_length_string(len)
 
 proc read_length_encoded_string*(reader: var Reader): (string, bool) =
   let (str_length, is_null) = read_length_encoded_integer(reader)

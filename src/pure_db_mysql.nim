@@ -9,10 +9,9 @@ import pure_db_mysql/[
 import db_common
 export db_common
 
-
-proc db_open*(host: string, port = DEFAULT_MYSQL_PORT, user,
-    password: string): DbConn =
-  return connect(host, Port(port), user, password)
+proc db_open*(host: string, port = DEFAULT_MYSQL_PORT,
+    user, password: string, database = ""): DbConn =
+  return connect(host, Port(port), user, password, database)
 
 proc db_close*(db_conn: var DbConn) =
   db_conn.disconnect()
@@ -30,7 +29,11 @@ proc get_all_rows*(db_conn: var DbConn, sql: SqlQuery): seq[Row] =
   db_conn.sequence_id = 0'u8
   send_packet(db_conn, query)
 
-  let column_count = db_conn.recv_packet().read_length_encoded_integer()[0]
+  let column_count_packet = db_conn.recv_packet()
+  if column_count_packet.is_err_packet():
+    echo read_err_data(column_count_packet)
+    dbError("Error")
+  let column_count = column_count_packet.read_length_encoded_integer()[0]
   echo "column_count:", column_count
 
   var column_definitions = newSeq[ColumnDefinition41](column_count)
@@ -41,12 +44,12 @@ proc get_all_rows*(db_conn: var DbConn, sql: SqlQuery): seq[Row] =
   echo column_definitions
 
   let response = db_conn.recv_packet()
-  if not response.is_eof():
+  if not response.is_eof_packet():
     dbError("read connection ok error")
 
   while true:
     var row_packet = db_conn.recv_packet()
-    if row_packet.is_eof():
+    if row_packet.is_eof_packet():
       let eof_data = read_eof_data(row_packet)
       db_conn.server_status_flags = eof_data.server_status_flags
       break

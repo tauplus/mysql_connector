@@ -17,36 +17,66 @@ type
 
 type
   OKData* = object
+    affected_rows*: uint64
+    last_insert_id*: uint64
     server_status_flags*: uint16
     num_of_warnings*: uint16
+
+type
+  ERRData* = object
+    error_code*: uint16
+    sql_state_marker*: string
+    sql_state*: string
+    error_message*: string
 
 type
   EOFData* = object
     server_status_flags*: uint16
     num_of_warnings*: uint16
 
-func is_eof*(packet: Packet): bool =
+func is_ok_packet*(packet: Packet): bool =
+  return packet[0] == 0x00 and packet.len >= 7
+
+proc read_ok_data*(packet: Packet): OKData =
+  var reader = new_reader(packet)
+  reader.read_skip(1)
+  result.affected_rows = reader.read_length_encoded_integer()[0]
+  result.last_insert_id = reader.read_length_encoded_integer()[0]
+  result.server_status_flags = reader.read_int_2()
+  result.num_of_warnings = reader.read_int_2()
+  return result
+
+func is_err_packet*(packet: Packet): bool =
+  return packet[0] == 0xFF
+
+proc read_err_data*(packet: Packet): ERRData =
+  var reader = new_reader(packet)
+  reader.read_skip(1)
+  result.error_code = reader.read_int_2()
+  result.sql_state_marker = reader.read_fixed_length_string(1)
+  result.sql_state = reader.read_fixed_length_string(5)
+  result.error_message = reader.read_eof_string()
+  return result
+
+func is_eof_packet*(packet: Packet): bool =
   return packet[0] == 0xFE and packet.len < 9
 
 proc read_eof_data*(packet: Packet): EOFData =
-
   var reader = new_reader(packet)
-
-  result.server_status_flags = reader.read_int_2()
-
-  # TODO: handle warnings
+  reader.read_skip(1)
   result.num_of_warnings = reader.read_int_2()
+  result.server_status_flags = reader.read_int_2()
+  return result
 
 proc read_column_definition*(packet: Packet): ColumnDefinition41  =
   var reader = new_reader(packet)
-  var is_null: bool
 
-  (result.catalog, is_null) = reader.read_length_encoded_string()
-  (result.schema, is_null) = reader.read_length_encoded_string()
-  (result.table, is_null) = reader.read_length_encoded_string()
-  (result.org_table, is_null)= reader.read_length_encoded_string()
-  (result.name, is_null) = reader.read_length_encoded_string()
-  (result.org_name, is_null) = reader.read_length_encoded_string()
+  result.catalog = reader.read_length_encoded_string()[0]
+  result.schema = reader.read_length_encoded_string()[0]
+  result.table = reader.read_length_encoded_string()[0]
+  result.org_table= reader.read_length_encoded_string()[0]
+  result.name = reader.read_length_encoded_string()[0]
+  result.org_name = reader.read_length_encoded_string()[0]
 
   let (fields_length, _) = reader.read_length_encoded_integer()
   if fields_length != 0x0C:

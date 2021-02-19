@@ -1,5 +1,5 @@
-import net
-import auth, packet, mysql_const, reader
+import net, db_common
+import auth, packet, mysql_const, reader, writer
 
 type Initial_handshake_v10* = object
   protocol_version*: uint8
@@ -18,7 +18,8 @@ proc read_initial_handshake_v10*(payload: Packet): Initial_handshake_v10 =
   var reader = new_reader(payload)
 
   result.protocol_version = reader.read_int_1()
-  #TODO: if protocol_version != 10, raise exception
+  if result.protocol_version != 10:
+    dbError("This library supports protocol_version 10")
   result.server_version = reader.read_null_terminated_string()
   result.thread_id = reader.read_int_4()
   let auth_plugin_data_part_1 = reader.read_bytes(8)
@@ -43,59 +44,44 @@ proc read_initial_handshake_v10*(payload: Packet): Initial_handshake_v10 =
 
   return result
 
-proc make_handshake_response_41*(hand_shake: Initial_handshake_v10, user, password: string): Packet =
+proc make_handshake_response_41*(hand_shake: Initial_handshake_v10, user, password: string, database = ""): Packet =
 
-  var pos: int
+  var writer = new_writer()
 
   var client_flag: uint32
   client_flag = CLIENT_PROTOCOL_41 or
                 CLIENT_TRANSACTIONS or
                 CLIENT_PLUGIN_AUTH or
-                CLIENT_MULTI_RESULTS
+                CLIENT_MULTI_RESULTS or
+                CLIENT_PLUGIN_AUTH_LENENC_CLIENT_DATA 
 
-  let packet_init_size = 4 + 4 + 4 + 1 + 23
-  result.setLen(packet_init_size)
+  if database.len != 0:
+    client_flag = client_flag or CLIENT_CONNECT_WITH_DB 
 
-  result[3] = 0x01
+  # result[3] = 0x01
+  writer.write_zero(4)
+  writer.write_int_4(client_flag)
+  writer.write_zero(4)
 
-  pos = 8
-
-  result[pos] = 0x00
-  result[pos+1] = 0x00
-  result[pos+2] = 0x00
-  result[pos+3] = 0x00
-  pos += 4
-
-  result[pos] = 0xFF
-  pos += 1
+  writer.write_int_1(0xFF)
 
   # filler
-  pos += 23
+  writer.write_zero(23)
 
-  result.setLen(result.len + user.len + 1)
-  for i, x in user:
-    result[pos+i] = byte(x)
-  pos += user.len + 1
+  writer.write_null_terminated_string(user)
 
   let auth_response = 
     if password == "":
       new_packet()
     else:
       auth_mysql_native_password(password, hand_shake.auth_plugin_data.to_string())
-  let auth_response_length = auth_response.len
-  result.add(byte(auth_response_length))
-  result.add(auth_response)
-  pos += 1 + auth_response_length
+  writer.write_length_encoded_integer(auth_response.len.uint64)
+  writer.add(auth_response)
 
-  for i, x in hand_shake.auth_plugin_name:
-    result.add(byte(x))
-  result.add(0x00)
-  pos += hand_shake.auth_plugin_name.len + 1
+  if database.len != 0:
+    writer.write_null_terminated_string(database)
 
-  result[4] = byte(client_flag)
-  result[5] = byte(client_flag shr 8)
-  result[6] = byte(client_flag shr 16)
-  result[7] = byte(client_flag shr 24)
+  writer.write_null_terminated_string(hand_shake.auth_plugin_name)
   
-  return result
+  return writer
 
