@@ -19,7 +19,7 @@ proc read_initial_handshake_v10*(payload: Packet): Initial_handshake_v10 =
 
   result.protocol_version = reader.read_int_1()
   if result.protocol_version != 10:
-    dbError("This library supports protocol_version 10")
+    dbError("This library supports protocol_version 10 only")
   result.server_version = reader.read_null_terminated_string()
   result.thread_id = reader.read_int_4()
   let auth_plugin_data_part_1 = reader.read_bytes(8)
@@ -41,6 +41,8 @@ proc read_initial_handshake_v10*(payload: Packet): Initial_handshake_v10 =
     return result
 
   result.auth_plugin_name = reader.read_null_terminated_string()
+  if result.auth_plugin_name != "mysql_native_password":
+    dbError("this library supports mysql_native_password only")
 
   return result
 

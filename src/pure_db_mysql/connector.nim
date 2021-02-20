@@ -87,7 +87,7 @@ proc connect*(host: string, port: Port, user, password: string, database = ""): 
   let response = recv_packet(db_conn)
   if response.is_ok_packet():
     let ok_data = read_ok_data(response)
-    discard ok_data
+    db_conn.server_status_flags = ok_data.server_status_flags
   return db_conn
 
 proc disconnect*(db_conn:var DbConn) =
