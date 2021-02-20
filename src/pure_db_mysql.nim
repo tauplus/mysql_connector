@@ -88,6 +88,21 @@ proc query_exec(db_conn: var DbConn, sql: SqlQuery, args: varargs[string, `$`]) 
   send_packet(db_conn, query_packet)
   return
 
+proc exec*(db_conn: var DbConn, sql: SqlQuery, args: varargs[string, `$`]) =
+  query_exec(db_conn, sql, args)
+
+  let response = db_conn.recv_packet()
+  if response.is_err_packet():
+    let err_data = read_err_data(response)
+    dbError(err_data.error_message)
+
+  if response.is_ok_packet():
+    let ok_data = response.read_ok_data()
+    echo ok_data
+  else:
+    dbError("exec error")
+
+
 proc get_all_rows*(db_conn: var DbConn, sql: SqlQuery, args: varargs[string, `$`]): seq[Row] =
 
   query_exec(db_conn, sql, args)
