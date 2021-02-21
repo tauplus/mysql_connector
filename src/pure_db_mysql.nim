@@ -8,6 +8,7 @@ import pure_db_mysql/[
 
 import db_common
 export db_common
+export connector.DbConn
 
 proc db_open*(host: string, user, password: string, database = ""): DbConn =
 
