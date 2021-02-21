@@ -1,4 +1,4 @@
-import net, db_common
+import net, db_common, logging
 import mysql_const, connection, packet, data
 
 type DbConn* = object
@@ -22,7 +22,7 @@ proc recv_packet*(db_conn:var DbConn): Packet =
     let header_read_size = recv(db_conn.socket, header[0].addr, HEADER_SIZE)
     if header_read_size != HEADER_SIZE: dbError("read packet header error")
 
-    echo "recv sequence_id:", uint8(header[3])
+    log(lvlDebug, "recv packet sequence_id:", uint8(header[3]))
     if uint8(header[3]) != db_conn.sequence_id: dbError("packet sequence is wrong")
     db_conn.sequence_id.inc(1)
 
@@ -30,7 +30,7 @@ proc recv_packet*(db_conn:var DbConn): Packet =
       uint32(header[0]) or
       uint32(header[1]).shl(8) or
       uint32(header[2]).shl(16)
-    echo "payload_length:", payload_length
+    log(lvlDebug, "recv packet payload_length:", payload_length)
     if payload_length == 0: break
     var payload = new_packet(payload_length)
     var payload_read_size = recv(db_conn.socket, payload[0].addr, int(payload_length))
@@ -60,8 +60,8 @@ proc send_packet*(db_conn:var DbConn, packet:var Packet) =
 
     packet[3] = byte(db_conn.sequence_id)
 
-    echo "send sequence_id:", db_conn.sequence_id
-    echo "send length:",payload_length
+    log(lvlDebug, "send packet sequence_id:", db_conn.sequence_id)
+    log(lvlDebug, "send packet length:", payload_length)
 
     discard send(db_conn.socket, packet[0].addr, payload_length + HEADER_SIZE)
     db_conn.sequence_id.inc(1)
@@ -79,7 +79,7 @@ proc connect*(host: string, port: Port, user, password: string, database = ""): 
   db_conn.connect_mysql_socket(host, port)
   let payload = recv_packet(db_conn)
   let initial_handshake = read_initial_handshake_v10(payload)
-  echo initial_handshake.repr
+  log(lvlDebug, "initial_handshake:", initial_handshake)
 
   var handshake_response = make_handshake_response_41(initial_handshake, user, password, database)
   send_packet(db_conn, handshake_response)

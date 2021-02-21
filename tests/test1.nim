@@ -1,19 +1,19 @@
-import unittest
+import unittest, logging
 import os
 
 import pure_db_mysql
 
-suite "db test":
+suite "with real db test":
 
-  echo "suite setup: run once before the tests"
-  
-  setup:
-    var db_setup: DB_conn
+  block start_suite:
+    var debug_log = newConsoleLogger(levelThreshold=lvlALL, useStderr=true)
+    addHandler(debug_log)
+    var db: DB_conn
     var try_count = 0
     var success = false
     while true:
       try:
-        db_setup = db_open("127.0.0.1:3306", "nim", "nim", "test")
+        db = db_open("127.0.0.1:3306", "nim", "nim", "test")
         success = true
       except:
         try_count += 1
@@ -23,7 +23,7 @@ suite "db test":
         break
       elif try_count > 120:
         raise newException(IOError, "connect mysql error")
-    defer: db_setup.db_close()
+    defer: db.db_close()
   
   test "get all rows":
     var db = db_open("127.0.0.1:3306", "nim", "nim", "test")
@@ -48,6 +48,7 @@ suite "db test":
     let rows = db.get_all_rows(sql"SELECT * FROM user ORDER BY id")
     check( rows == insert_args )
 
+suite "without real db test":
   test "escape string":
     let str =  "\0\'\"\n\r\26\\"
     check(str.escape_string() == "\'\\0\\'\\\"\\n\\r\\Z\\\\\'")
