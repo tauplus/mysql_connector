@@ -1,4 +1,6 @@
-import net, strutils, logging
+import net, strutils
+when defined(logging_pure_db_mysql):
+  import logging
 import pure_db_mysql/[
   connector,
   data,
@@ -99,7 +101,8 @@ proc exec*(db_conn: var DbConn, sql: SqlQuery, args: varargs[string, `$`]) =
 
   if response.is_ok_packet():
     let ok_data = response.read_ok_data()
-    log(lvlINFO, "ok_packet:", ok_data)
+    when defined(logging_pure_db_mysql):
+      log(lvlINFO, "ok_packet:", ok_data)
   else:
     dbError("exec error")
 
@@ -113,14 +116,16 @@ proc get_all_rows*(db_conn: var DbConn, sql: SqlQuery, args: varargs[string, `$`
     let err_data = read_err_data(column_count_packet)
     dbError(err_data.error_message)
   let column_count = column_count_packet.read_length_encoded_integer()[0]
-  log(lvlINFO, "column_count:", column_count)
+  when defined(logging_pure_db_mysql):
+    log(lvlINFO, "column_count:", column_count)
 
   var column_definitions = newSeq[ColumnDefinition41](column_count)
   for i in 0..<column_count:
     let column_def_packet = db_conn.recv_packet()
     column_definitions[i] = read_column_definition(column_def_packet)
 
-  log(lvlINFO, "column_definitions:", column_definitions)
+  when defined(logging_pure_db_mysql):
+    log(lvlINFO, "column_definitions:", column_definitions)
 
   let response = db_conn.recv_packet()
   if not response.is_eof_packet():
