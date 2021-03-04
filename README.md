@@ -1,3 +1,8 @@
+# About pure_db_mysql
+
+This library is MySQL Connector written in pure Nim.  
+(Nim standard library [`db_mysql`](https://nim-lang.org/docs/db_mysql.html) is impure and needs installation of MySQL client library.)
+
 # Install
 
 ```bash
