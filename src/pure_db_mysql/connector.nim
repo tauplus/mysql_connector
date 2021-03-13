@@ -104,8 +104,6 @@ proc connect*(host: string, port: Port, user, password: string, database = ""): 
   var plugin_data = initial_handshake.auth_plugin_data
   if response.len > 0 and response[0] == 0xFE:
     (plugin_name, plugin_data) = read_auth_switch_request(response)
-    echo plugin_name
-    echo plugin_data
     var auth_switch_response = make_auth_switch_response(password, plugin_name, plugin_data)
     send_packet(db_conn, auth_switch_response)
     response = recv_packet(db_conn)
