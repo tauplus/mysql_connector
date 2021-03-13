@@ -5,7 +5,7 @@ type Initial_handshake_v10* = object
   protocol_version*: uint8
   server_version*: string
   thread_id*: uint32
-  auth_plugin_data*: Packet
+  auth_plugin_data*: string
   filler*: uint8
   capability_flags*: uint32
   character_set*: uint8
@@ -22,7 +22,7 @@ proc read_initial_handshake_v10*(payload: Packet): Initial_handshake_v10 =
     dbError("This library supports protocol_version 10 only")
   result.server_version = reader.read_null_terminated_string()
   result.thread_id = reader.read_int_4()
-  let auth_plugin_data_part_1 = reader.read_bytes(8)
+  let auth_plugin_data_part_1 = reader.read_fixed_length_string(8)
   result.filler = reader.read_int_1()
   let capability_flags_1 = reader.read_int_2().uint32
   result.character_set = reader.read_int_1()
@@ -32,9 +32,9 @@ proc read_initial_handshake_v10*(payload: Packet): Initial_handshake_v10 =
   result.auth_plugin_data_len = reader.read_int_1()
   result.reserved = reader.read_bytes(10)
   let auth_plugin_data_part_2_len = max(13, int(result.auth_plugin_data_len) - 8)
-  var auth_plugin_data_part_2 = reader.read_bytes(auth_plugin_data_part_2_len)
-  if auth_plugin_data_part_2[^1] == 0x00:
-    discard auth_plugin_data_part_2.pop()
+  var auth_plugin_data_part_2 = reader.read_fixed_length_string(auth_plugin_data_part_2_len)
+  if auth_plugin_data_part_2[^1] == '\0':
+    auth_plugin_data_part_2.setLen(auth_plugin_data_part_2.len - 1)
   result.auth_plugin_data = auth_plugin_data_part_1 & auth_plugin_data_part_2
 
   if (result.capability_flags and CLIENT_PLUGIN_AUTH) == 0:
@@ -72,9 +72,9 @@ proc make_handshake_response_41*(hand_shake: Initial_handshake_v10, user, passwo
     if password == "":
       new_packet()
     elif hand_shake.auth_plugin_name == "mysql_native_password":
-      auth_mysql_native_password(password, hand_shake.auth_plugin_data.to_string())
+      auth_mysql_native_password(password, hand_shake.auth_plugin_data)
     elif hand_shake.auth_plugin_name == "caching_sha2_password":
-      auth_caching_sha2_password(password, hand_shake.auth_plugin_data.to_string())
+      auth_caching_sha2_password(password, hand_shake.auth_plugin_data)
     else: 
       dbError("Unsupported auth_plugin")
   result.write_length_encoded_integer(auth_response.len.uint64)
@@ -87,31 +87,31 @@ proc make_handshake_response_41*(hand_shake: Initial_handshake_v10, user, passwo
 
   return result
   
-func make_encypted_password_packet*(password: string, auth_plugin_data: Packet, publickey_packet: Packet): Packet =
+func make_encypted_password_packet*(password: string, auth_plugin_data: string, publickey_packet: Packet): Packet =
   let pem_str = publickey_packet[1..^1].to_string()
-  let encrypted_password = rsa_publickey_encrypt(password, auth_plugin_data.to_string(), pem_str)
+  let encrypted_password = rsa_publickey_encrypt(password, auth_plugin_data, pem_str)
   result = new_writer(4)
   result.write_fixed_length_string(encrypted_password, encrypted_password.len)
   return result
 
-proc read_auth_switch_request*(payload: Packet): (string, Packet) =
+proc read_auth_switch_request*(payload: Packet): (string, string) =
   # https://dev.mysql.com/doc/dev/mysql-server/8.0.23/page_protocol_connection_phase_packets_protocol_auth_switch_request.html
   var reader = new_reader(payload)
   reader.read_skip(1)
   let plugin_name = reader.read_null_terminated_string()
-  var plugin_data = reader.read_eof_string().to_packet()
-  if plugin_data[^1] == 0x00:
-    discard plugin_data.pop()
+  var plugin_data = reader.read_eof_string()
+  if plugin_data[^1] == '\0':
+    plugin_data.setLen(plugin_data.len - 1)
   return (plugin_name, plugin_data)
 
-proc make_auth_switch_response*(password, plugin_name: string, plugin_data: Packet): Packet =
+proc make_auth_switch_response*(password, plugin_name: string, plugin_data: string): Packet =
   let auth_response = 
     if password == "":
       new_packet()
     elif plugin_name == "mysql_native_password":
-      auth_mysql_native_password(password, plugin_data.to_string())
+      auth_mysql_native_password(password, plugin_data)
     elif plugin_name == "caching_sha2_password":
-      auth_caching_sha2_password(password, plugin_data.to_string())
+      auth_caching_sha2_password(password, plugin_data)
     else: 
       dbError("Unsupported auth_plugin")
 
