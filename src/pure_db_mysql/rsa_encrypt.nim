@@ -1,6 +1,6 @@
 import openssl
 
-proc rsa_publickey_encrypt*(password_orig, seed, pubkey_pem: string): string =
+func rsa_publickey_encrypt*(password_orig, seed, pubkey_pem: string): string =
   var password = password_orig
   password.add(chr(0x00))
   var bio = bioNew(bioSMem())

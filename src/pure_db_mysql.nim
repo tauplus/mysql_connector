@@ -30,7 +30,7 @@ proc db_close*(db_conn: var DbConn) =
   db_conn.disconnect()
   return
 
-proc escape_string*(str: string): string =
+func escape_string*(str: string): string =
   # https://dev.mysql.com/doc/refman/8.0/en/string-literals.html
   # https://github.com/mysql/mysql-server/blob/8.0/mysys/charset.cc#L758
   result = newStringOfCap(str.len+2)
@@ -56,7 +56,7 @@ proc escape_string*(str: string): string =
   result.add('\'')
   return
 
-proc quote_string*(str: string): string =
+func quote_string*(str: string): string =
   # https://dev.mysql.com/doc/refman/8.0/en/sql-mode.html#sqlmode_no_backslash_escapes
   result = newStringOfCap(str.len+2)
   result.add('\'')

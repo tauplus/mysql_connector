@@ -37,7 +37,7 @@ type
 func is_ok_packet*(packet: Packet): bool =
   return packet[0] == 0x00 and packet.len >= 7
 
-proc read_ok_data*(packet: Packet): OKData =
+func read_ok_data*(packet: Packet): OKData =
   var reader = new_reader(packet)
   reader.read_skip(1)
   result.affected_rows = reader.read_length_encoded_integer()[0]
@@ -49,7 +49,7 @@ proc read_ok_data*(packet: Packet): OKData =
 func is_err_packet*(packet: Packet): bool =
   return packet[0] == 0xFF
 
-proc read_err_data*(packet: Packet): ERRData =
+func read_err_data*(packet: Packet): ERRData =
   var reader = new_reader(packet)
   reader.read_skip(1)
   result.error_code = reader.read_int_2()
@@ -61,18 +61,18 @@ proc read_err_data*(packet: Packet): ERRData =
 func is_eof_packet*(packet: Packet): bool =
   return packet[0] == 0xFE and packet.len < 9
 
-proc read_eof_data*(packet: Packet): EOFData =
+func read_eof_data*(packet: Packet): EOFData =
   var reader = new_reader(packet)
   reader.read_skip(1)
   result.num_of_warnings = reader.read_int_2()
   result.server_status_flags = reader.read_int_2()
   return result
 
-proc read_column_count*(packet: Packet): uint64 =
+func read_column_count*(packet: Packet): uint64 =
   var reader = new_reader(packet)
   return reader.read_length_encoded_integer()[0]
 
-proc read_column_definition*(packet: Packet): ColumnDefinition41  =
+func read_column_definition*(packet: Packet): ColumnDefinition41  =
   var reader = new_reader(packet)
 
   result.catalog = reader.read_length_encoded_string()[0]
@@ -97,7 +97,7 @@ proc read_column_definition*(packet: Packet): ColumnDefinition41  =
 type
   Row* = seq[string]
 
-proc read_text_resultset_row*(row_packet: Packet, column_count: uint64): Row =
+func read_text_resultset_row*(row_packet: Packet, column_count: uint64): Row =
   result.setlen(column_count)
   var reader = new_reader(row_packet)
   for i in 0..<column_count:

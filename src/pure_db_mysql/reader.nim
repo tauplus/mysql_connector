@@ -13,28 +13,28 @@ func new_reader*(packet: Packet): Reader =
 func len(reader: Reader): int =
   return reader.packet.len()
 
-proc read_skip*(reader: var Reader, len: int) =
+func read_skip*(reader: var Reader, len: int) =
   reader.next_read_pos += len
   return
 
-proc read_bytes*(reader: var Reader, len: int): Packet =
+func read_bytes*(reader: var Reader, len: int): Packet =
   result = reader.packet[reader.next_read_pos..<reader.next_read_pos+len]
   reader.next_read_pos += len
   return result
 
-proc read_int_1*(reader: var Reader): uint8 =
+func read_int_1*(reader: var Reader): uint8 =
   result = uint8(reader.packet[reader.next_read_pos])
   reader.next_read_pos += 1
   return result
 
-proc read_int_2*(reader: var Reader): uint16 =
+func read_int_2*(reader: var Reader): uint16 =
   result =
     uint16(reader.packet[reader.next_read_pos]) or
     uint16(reader.packet[reader.next_read_pos+1]).shl(8)
   reader.next_read_pos += 2
   return result
 
-proc read_int_3*(reader: var Reader): uint32 =
+func read_int_3*(reader: var Reader): uint32 =
   result =
     uint32(reader.packet[reader.next_read_pos]) or
     uint32(reader.packet[reader.next_read_pos+1]).shl(8) or
@@ -42,7 +42,7 @@ proc read_int_3*(reader: var Reader): uint32 =
   reader.next_read_pos += 3
   return result
 
-proc read_int_4*(reader: var Reader): uint32 =
+func read_int_4*(reader: var Reader): uint32 =
   result =
     uint32(reader.packet[reader.next_read_pos]) or
     uint32(reader.packet[reader.next_read_pos+1]).shl(8) or
@@ -51,7 +51,7 @@ proc read_int_4*(reader: var Reader): uint32 =
   reader.next_read_pos += 4
   return result
 
-proc read_int_6*(reader: var Reader): uint64 =
+func read_int_6*(reader: var Reader): uint64 =
   result =
     uint64(reader.packet[reader.next_read_pos]) or
     uint64(reader.packet[reader.next_read_pos+1]).shl(8) or
@@ -62,7 +62,7 @@ proc read_int_6*(reader: var Reader): uint64 =
   reader.next_read_pos += 6
   return result
 
-proc read_int_8*(reader: var Reader): uint64 =
+func read_int_8*(reader: var Reader): uint64 =
   result =
     uint64(reader.packet[reader.next_read_pos]) or
     uint64(reader.packet[reader.next_read_pos+1]).shl(8) or
@@ -75,7 +75,7 @@ proc read_int_8*(reader: var Reader): uint64 =
   reader.next_read_pos += 8
   return result
 
-proc read_length_encoded_integer*(reader: var Reader): (uint64, bool) =
+func read_length_encoded_integer*(reader: var Reader): (uint64, bool) =
   # https://github.com/go-sql-driver/mysql/pull/349
   if reader.len == reader.next_read_pos:
     return (0'u64, true)
@@ -101,24 +101,24 @@ proc read_length_encoded_integer*(reader: var Reader): (uint64, bool) =
     else: # 0..250
       return (reader.read_int_1().uint64, false)
 
-proc read_fixed_length_string*(reader: var Reader, len: int): string =
+func read_fixed_length_string*(reader: var Reader, len: int): string =
   result = newString(len)
   let pos = reader.next_read_pos
   for i in 0..<len:
     result[i] = reader.packet[pos+i].char()
   reader.next_read_pos += len
 
-proc read_eof_string*(reader: var Reader): string =
+func read_eof_string*(reader: var Reader): string =
   let len = reader.len - reader.next_read_pos
   result = reader.read_fixed_length_string(len)
 
-proc read_length_encoded_string*(reader: var Reader): (string, bool) =
+func read_length_encoded_string*(reader: var Reader): (string, bool) =
   let (str_length, is_null) = read_length_encoded_integer(reader)
   result[0] = reader.read_fixed_length_string(str_length.int)
   result[1] = isNull
   return result
 
-proc read_null_terminated_string*(reader: var Reader): string =
+func read_null_terminated_string*(reader: var Reader): string =
   var str_len: int
   for i in reader.next_read_pos..<reader.packet.len:
     if reader.packet[i] == 0x00:

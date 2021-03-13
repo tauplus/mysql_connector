@@ -4,8 +4,8 @@ import nimSHA2
 import packet, utility
 
 func auth_mysql_native_password*(password, nonce: string): Packet =
-  proc to_string(securehash: SecureHash): string =
-    return Sha1Digest(securehash).map(proc(x: uint8): char = chr(x)).to_string()
+  func to_string(securehash: SecureHash): string =
+    return Sha1Digest(securehash).map(func(x: uint8): char = chr(x)).to_string()
 
   let hashed_password = secureHash(password)
   let digest1 = secureHash(hashed_password.to_string())
@@ -18,7 +18,7 @@ func auth_mysql_native_password*(password, nonce: string): Packet =
 
   return result
 
-proc auth_caching_sha2_password*(password, nonce: string): Packet =
+func auth_caching_sha2_password*(password, nonce: string): Packet =
   var sha2 = initSHA[SHA256]()
   sha2.update(password)
   let hashed_password = sha2.final()

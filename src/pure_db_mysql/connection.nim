@@ -14,7 +14,7 @@ type Initial_handshake_v10* = object
   reserved*: Packet
   auth_plugin_name*: string
 
-proc read_initial_handshake_v10*(payload: Packet): Initial_handshake_v10 =
+func read_initial_handshake_v10*(payload: Packet): Initial_handshake_v10 =
   var reader = new_reader(payload)
 
   result.protocol_version = reader.read_int_1()
@@ -44,7 +44,7 @@ proc read_initial_handshake_v10*(payload: Packet): Initial_handshake_v10 =
 
   return result
 
-proc make_handshake_response_41*(hand_shake: Initial_handshake_v10, user, password: string, database = ""): Packet =
+func make_handshake_response_41*(hand_shake: Initial_handshake_v10, user, password: string, database = ""): Packet =
 
   result = new_writer(4)
 
@@ -94,7 +94,7 @@ func make_encypted_password_packet*(password: string, auth_plugin_data: string, 
   result.write_fixed_length_string(encrypted_password, encrypted_password.len)
   return result
 
-proc read_auth_switch_request*(payload: Packet): (string, string) =
+func read_auth_switch_request*(payload: Packet): (string, string) =
   # https://dev.mysql.com/doc/dev/mysql-server/8.0.23/page_protocol_connection_phase_packets_protocol_auth_switch_request.html
   var reader = new_reader(payload)
   reader.read_skip(1)
@@ -104,7 +104,7 @@ proc read_auth_switch_request*(payload: Packet): (string, string) =
     plugin_data.setLen(plugin_data.len - 1)
   return (plugin_name, plugin_data)
 
-proc make_auth_switch_response*(password, plugin_name: string, plugin_data: string): Packet =
+func make_auth_switch_response*(password, plugin_name: string, plugin_data: string): Packet =
   let auth_response = 
     if password == "":
       new_packet()
