@@ -94,11 +94,60 @@ proc connect*(host: string, port: Port, user, password: string, database = ""): 
   var handshake_response = make_handshake_response_41(initial_handshake, user, password, database)
   send_packet(db_conn, handshake_response)
 
-  let response = recv_packet(db_conn)
+  var response = recv_packet(db_conn)
   if response.is_ok_packet():
     let ok_data = read_ok_data(response)
     db_conn.server_status_flags = ok_data.server_status_flags
-  return db_conn
+    return db_conn
+  
+  var plugin_name = initial_handshake.auth_plugin_name
+  var plugin_data = initial_handshake.auth_plugin_data
+  if response.len > 0 and response[0] == 0xFE:
+    (plugin_name, plugin_data) = read_auth_switch_request(response)
+    echo plugin_name
+    echo plugin_data
+    var auth_switch_response = make_auth_switch_response(password, plugin_name, plugin_data)
+    send_packet(db_conn, auth_switch_response)
+    response = recv_packet(db_conn)
+    if response.is_ok_packet():
+      let ok_data = read_ok_data(response)
+      db_conn.server_status_flags = ok_data.server_status_flags
+      return db_conn
+
+  if plugin_name == "caching_sha2_password":
+    if response.len != 2:
+      dbError("unexpected respose")
+    elif response[0] == 0x01:
+      # https://insidemysql.com/preparing-your-community-connector-for-mysql-8-part-2-sha256/
+      case response[1]:
+        of CACHING_SHA2_FAST_AUTH_SUCCESS.byte:
+          let more_response = recv_packet(db_conn)
+          if more_response.is_ok_packet():
+            let ok_data = read_ok_data(more_response)
+            db_conn.server_status_flags = ok_data.server_status_flags
+            return db_conn
+          else:
+            dbError("unexpected respose")
+        of CACHING_SHA2_PERFORM_FULL_AUTHENTICATION.byte:
+          var pubkey_req_packet = new_packet(5)
+          pubkey_req_packet[4] = CACHING_SHA2_REQUEST_PUBLIC_KEY.byte
+          send_packet(db_conn, pubkey_req_packet)
+          let pubkey_respose = recv_packet(db_conn)
+          var encrypted_password_packet = make_encypted_password_packet(password, plugin_data, pubkey_respose)
+          send_packet(db_conn, encrypted_password_packet)
+          let pubkey_respose2 = recv_packet(db_conn)
+          if pubkey_respose2.is_ok_packet():
+            let ok_data = read_ok_data(pubkey_respose2)
+            db_conn.server_status_flags = ok_data.server_status_flags
+            return db_conn
+          elif pubkey_respose2.is_err_packet():
+            let err_data = read_err_data(pubkey_respose2)
+            dbError(err_data.error_message)
+          else:
+            dbError("unexpected respose")
+        else:
+          dbError("unexpected respose")
+  dbError("unexpected respose")
 
 proc disconnect*(db_conn:var DbConn) =
 

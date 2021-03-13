@@ -11,6 +11,11 @@ proc to_string*(packet: Packet): string =
   for i, b in packet:
     result[i] = char(b)
 
+proc to_packet*(str: string): Packet =
+  result = new_packet(str.len)
+  for i in 0..<str.len:
+    result[i] = str[i].byte
+
 proc read_length_encoded_integer*(packet: Packet): (uint64, bool, int) =
 
   # https://github.com/go-sql-driver/mysql/pull/349

@@ -4,8 +4,8 @@ import packet
 type
   Writer* = Packet
 
-func new_writer*(): Writer =
-  return new_packet()
+func new_writer*(len = 0.Natural): Writer =
+  return new_packet(len)
 
 proc write_zero*(writer: var Writer, len: Natural) =
   writer.add( new_packet(len) )

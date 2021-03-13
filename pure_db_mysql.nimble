@@ -10,6 +10,7 @@ srcDir = "src"
 # Dependencies
 
 requires "nim >= 1.4.2"
+requires "nimSHA2 >= 0.1.1"
 
 task ci, "Run CI":
   exec "docker-compose up -d"

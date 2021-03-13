@@ -101,8 +101,7 @@ proc exec*(db_conn: var DbConn, sql: SqlQuery, args: varargs[string, `$`]) =
 
   if response.is_ok_packet():
     let ok_data = response.read_ok_data()
-    when defined(logging_pure_db_mysql):
-      log(lvlINFO, "ok_packet:", ok_data)
+    db_conn.server_status_flags = ok_data.server_status_flags
   else:
     dbError("exec error")
 
@@ -125,7 +124,7 @@ proc get_all_rows*(db_conn: var DbConn, sql: SqlQuery, args: varargs[string, `$`
     column_definitions[i] = read_column_definition(column_def_packet)
 
   when defined(logging_pure_db_mysql):
-    log(lvlINFO, "column_definitions:", column_definitions)
+    log(lvlDebug, "column_definitions:", column_definitions)
 
   let response = db_conn.recv_packet()
   if not response.is_eof_packet():
