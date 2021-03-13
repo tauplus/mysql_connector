@@ -68,6 +68,10 @@ proc read_eof_data*(packet: Packet): EOFData =
   result.server_status_flags = reader.read_int_2()
   return result
 
+proc read_column_count*(packet: Packet): uint64 =
+  var reader = new_reader(packet)
+  return reader.read_length_encoded_integer()[0]
+
 proc read_column_definition*(packet: Packet): ColumnDefinition41  =
   var reader = new_reader(packet)
 

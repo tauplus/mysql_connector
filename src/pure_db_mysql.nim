@@ -114,7 +114,7 @@ proc get_all_rows*(db_conn: var DbConn, sql: SqlQuery, args: varargs[string, `$`
   if column_count_packet.is_err_packet():
     let err_data = read_err_data(column_count_packet)
     dbError(err_data.error_message)
-  let column_count = column_count_packet.read_length_encoded_integer()[0]
+  let column_count = column_count_packet.read_column_count()
   when defined(logging_pure_db_mysql):
     log(lvlINFO, "column_count:", column_count)
 
