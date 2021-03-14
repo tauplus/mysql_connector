@@ -1,6 +1,6 @@
 # About mysql_connector
 
-This library is MySQL Connector written in pure Nim.  
+This library is MySQL Connector written in ~~pure~~(OpenSSL is required) Nim.  
 (Nim standard library [`db_mysql`](https://nim-lang.org/docs/db_mysql.html) is impure and needs installation of MySQL client library.)
 
 # Install
