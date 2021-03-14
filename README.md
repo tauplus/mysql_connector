@@ -11,7 +11,9 @@ nimble install https://github.com/tauplus/pure_db_mysql.git
 
 # Note
 
-This library supports `mysql_native_password` only.
+Supported auth plugins
+- caching_sha2_password
+- mysql_native_password
 
 # Example
 
