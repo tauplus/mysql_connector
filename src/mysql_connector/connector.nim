@@ -1,5 +1,5 @@
 import net, db_common
-when defined(logging_pure_db_mysql):
+when defined(logging_mysql_connector):
   import logging
 import mysql_const, connection, packet, data
 
@@ -24,7 +24,7 @@ proc recv_packet*(db_conn:var DbConn): Packet =
     let header_read_size = recv(db_conn.socket, header[0].addr, HEADER_SIZE)
     if header_read_size != HEADER_SIZE: dbError("read packet header error")
 
-    when defined(logging_pure_db_mysql):
+    when defined(logging_mysql_connector):
       log(lvlDebug, "recv packet sequence_id:", uint8(header[3]))
     if uint8(header[3]) != db_conn.sequence_id: dbError("packet sequence is wrong")
     db_conn.sequence_id.inc(1)
@@ -33,13 +33,13 @@ proc recv_packet*(db_conn:var DbConn): Packet =
       uint32(header[0]) or
       uint32(header[1]).shl(8) or
       uint32(header[2]).shl(16)
-    when defined(logging_pure_db_mysql):
+    when defined(logging_mysql_connector):
       log(lvlDebug, "recv packet payload_length:", payload_length)
     if payload_length == 0: break
     var payload = new_packet(payload_length)
     var payload_read_size = recv(db_conn.socket, payload[0].addr, int(payload_length))
     if payload_read_size != int(payload_length): dbError("read packet payload error")
-    when defined(logging_pure_db_mysql) and defined(logging_mysql_packet):
+    when defined(logging_mysql_connector) and defined(logging_mysql_packet):
       log(lvlDebug, "recv packet payload:", payload)
 
     result.add(payload)
@@ -66,7 +66,7 @@ proc send_packet*(db_conn:var DbConn, packet:var Packet) =
 
     packet[3] = byte(db_conn.sequence_id)
 
-    when defined(logging_pure_db_mysql):
+    when defined(logging_mysql_connector):
       log(lvlDebug, "send packet sequence_id:", db_conn.sequence_id)
       log(lvlDebug, "send packet payload_length:", payload_length)
       when defined(logging_mysql_packet):
@@ -88,7 +88,7 @@ proc connect*(host: string, port: Port, user, password: string, database = ""): 
   db_conn.connect_mysql_socket(host, port)
   let payload = recv_packet(db_conn)
   let initial_handshake = read_initial_handshake_v10(payload)
-  when defined(logging_pure_db_mysql):
+  when defined(logging_mysql_connector):
     log(lvlDebug, "initial_handshake:", initial_handshake)
 
   var handshake_response = make_handshake_response_41(initial_handshake, user, password, database)

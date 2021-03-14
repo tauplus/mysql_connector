@@ -1,4 +1,4 @@
-# About pure_db_mysql
+# About mysql_connector
 
 This library is MySQL Connector written in pure Nim.  
 (Nim standard library [`db_mysql`](https://nim-lang.org/docs/db_mysql.html) is impure and needs installation of MySQL client library.)
@@ -6,7 +6,7 @@ This library is MySQL Connector written in pure Nim.
 # Install
 
 ```bash
-nimble install https://github.com/tauplus/pure_db_mysql.git
+nimble install https://github.com/tauplus/mysql_connector.git
 ```
 
 # Note
@@ -18,7 +18,7 @@ Supported auth plugins
 # Example
 
 ```nim
-import pure_db_mysql
+import mysql_connector
 
 proc main()=
   var db = db_open("127.0.0.1:3306", "nim", "nim", "test")

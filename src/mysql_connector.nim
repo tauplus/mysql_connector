@@ -1,7 +1,7 @@
 import net, strutils
-when defined(logging_pure_db_mysql):
+when defined(logging_mysql_connector):
   import logging
-import pure_db_mysql/[
+import mysql_connector/[
   connector,
   data,
   packet,
@@ -115,7 +115,7 @@ proc get_all_rows*(db_conn: var DbConn, sql: SqlQuery, args: varargs[string, `$`
     let err_data = read_err_data(column_count_packet)
     dbError(err_data.error_message)
   let column_count = column_count_packet.read_column_count()
-  when defined(logging_pure_db_mysql):
+  when defined(logging_mysql_connector):
     log(lvlINFO, "column_count:", column_count)
 
   var column_definitions = newSeq[ColumnDefinition41](column_count)
@@ -123,7 +123,7 @@ proc get_all_rows*(db_conn: var DbConn, sql: SqlQuery, args: varargs[string, `$`
     let column_def_packet = db_conn.recv_packet()
     column_definitions[i] = read_column_definition(column_def_packet)
 
-  when defined(logging_pure_db_mysql):
+  when defined(logging_mysql_connector):
     log(lvlDebug, "column_definitions:", column_definitions)
 
   let response = db_conn.recv_packet()

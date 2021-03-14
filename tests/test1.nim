@@ -1,7 +1,7 @@
 import unittest, logging
 import os
 
-import pure_db_mysql
+import mysql_connector
 
 suite "with real db test":
 
